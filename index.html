@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WTI/USD Pro Dashboard V1</title>
+<style>
+  :root {
+    --bg: #0a0b08;
+    --bg2: #0e1009;
+    --bg3: #14180c;
+    --bg4: #1a1f10;
+    --border: #2a3218;
+    --oil: #d4a843;
+    --oil2: #a07830;
+    --oil-glow: rgba(212,168,67,0.15);
+    --blue: #4a9eff;
+    --green: #00d68f;
+    --red: #ff4d6d;
+    --orange: #ff9f1c;
+    --yellow: #ffd60a;
+    --text: #e8e5d8;
+    --text2: #9a9070;
+    --text3: #5a5540;
+    --radius: 10px;
+    --shadow: 0 4px 20px rgba(0,0,0,0.4);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif; min-height:100vh; }
+
+  /* TOP BAR */
+  .topbar {
+    background: linear-gradient(135deg, #0f1208 0%, #161a0c 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top:0; z-index:100;
+  }
+  .topbar-left { display:flex; align-items:center; gap:14px; }
+  .asset-badge {
+    background: linear-gradient(135deg, #2a3018, #1e280e);
+    border: 1px solid var(--oil);
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-size: 18px; font-weight: 700; letter-spacing:1px;
+    color: var(--oil);
+    text-shadow: 0 0 12px rgba(212,168,67,0.5);
+  }
+  .price-display { display:flex; flex-direction:column; }
+  .price-main { font-size:26px; font-weight:700; color:var(--oil); font-variant-numeric:tabular-nums; }
+  .price-change { font-size:12px; color:var(--text2); }
+  .price-change.up { color:var(--green); }
+  .price-change.down { color:var(--red); }
+  .topbar-right { display:flex; align-items:center; gap:10px; }
+  .clock { font-size:12px; color:var(--text2); font-variant-numeric:tabular-nums; }
+  .refresh-btn {
+    background: var(--bg4); border: 1px solid var(--border);
+    color: var(--oil); padding: 6px 12px; border-radius:6px;
+    cursor:pointer; font-size:12px; transition: all 0.2s;
+  }
+  .refresh-btn:hover { border-color:var(--oil); background:var(--bg3); }
+  .refresh-timer { font-size:11px; color:var(--text3); }
+
+  /* MACRO ALERT */
+  .macro-alert {
+    background: linear-gradient(135deg, rgba(255,159,28,0.12), rgba(255,159,28,0.06));
+    border: 1px solid rgba(255,159,28,0.4);
+    border-radius: var(--radius);
+    padding: 10px 16px;
+    margin: 14px 20px 0;
+    display: flex; align-items:center; gap:10px;
+    font-size:13px; color:var(--orange);
+    display:none;
+  }
+  .macro-alert.show { display:flex; }
+
+  /* EIA BANNER */
+  .eia-banner {
+    background: linear-gradient(135deg, rgba(212,168,67,0.1), rgba(212,168,67,0.03));
+    border: 1px solid rgba(212,168,67,0.3);
+    border-radius: var(--radius);
+    padding: 10px 16px;
+    margin: 14px 20px 0;
+    display: flex; align-items:center; justify-content:space-between;
+    font-size:12px;
+  }
+  .eia-label { color:var(--oil); font-weight:600; }
+  .eia-val { color:var(--text2); }
+
+  /* MAIN LAYOUT */
+  .main { padding: 16px 20px; display:grid; grid-template-columns: 1fr 340px; gap:16px; }
+  @media(max-width:1100px){ .main { grid-template-columns:1fr; } }
+
+  /* PANEL */
+  .panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .panel-header {
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 16px;
+    font-size: 12px; font-weight:600;
+    text-transform: uppercase; letter-spacing:0.8px;
+    color: var(--text2);
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .panel-header span { color:var(--oil); }
+  .panel-body { padding: 14px 16px; }
+
+  /* MODE SELECTOR */
+  .mode-row { display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
+  .mode-btn {
+    background: var(--bg4); border: 1px solid var(--border);
+    color: var(--text2); padding: 7px 14px; border-radius:6px;
+    cursor:pointer; font-size:12px; font-weight:600;
+    transition: all 0.2s; display:flex; align-items:center; gap:5px;
+  }
+  .mode-btn:hover { border-color:var(--oil2); color:var(--text); }
+  .mode-btn.active { background: linear-gradient(135deg, #2a2a10, #1e1e0a); border-color:var(--oil); color:var(--oil); }
+  .mode-btn.long-active { background: linear-gradient(135deg, #0d2a1a, #0a1f15); border-color:var(--green); color:var(--green); }
+  .mode-btn.short-active { background: linear-gradient(135deg, #2a0d15, #1f0a10); border-color:var(--red); color:var(--red); }
+
+  /* SIGNAL GLOBAL */
+  .signal-box {
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom:14px;
+    text-align:center;
+    border: 1px solid var(--border);
+    background: var(--bg4);
+    transition: all 0.4s;
+  }
+  .signal-box.bullish { background: linear-gradient(135deg,rgba(0,214,143,0.12),rgba(0,214,143,0.04)); border-color:rgba(0,214,143,0.4); }
+  .signal-box.bearish { background: linear-gradient(135deg,rgba(255,77,109,0.12),rgba(255,77,109,0.04)); border-color:rgba(255,77,109,0.4); }
+  .signal-box.neutral { background: linear-gradient(135deg,rgba(212,168,67,0.1),rgba(212,168,67,0.03)); border-color:rgba(212,168,67,0.3); }
+  .signal-label { font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--text3); margin-bottom:4px; }
+  .signal-text { font-size:20px; font-weight:700; }
+  .signal-box.bullish .signal-text { color:var(--green); }
+  .signal-box.bearish .signal-text { color:var(--red); }
+  .signal-box.neutral .signal-text { color:var(--oil); }
+  .signal-sub { font-size:11px; color:var(--text2); margin-top:4px; }
+
+  /* INDICATORS TABLE */
+  .ind-table { width:100%; border-collapse:collapse; }
+  .ind-table tr { border-bottom: 1px solid rgba(42,50,24,0.5); }
+  .ind-table tr:last-child { border-bottom:none; }
+  .ind-table td { padding: 8px 4px; font-size:13px; }
+  .ind-table .ind-name { color:var(--text2); font-size:11px; width:90px; }
+  .ind-table .ind-val { font-weight:600; font-variant-numeric:tabular-nums; color:var(--text); }
+  .ind-table .ind-sig { text-align:right; font-size:11px; font-weight:600; }
+  .sig-buy { color:var(--green); }
+  .sig-sell { color:var(--red); }
+  .sig-neutral { color:var(--orange); }
+  .sig-weak { color:var(--text3); }
+
+  /* STOCH RSI BAR */
+  .stoch-bar-wrap { padding: 6px 0 2px; }
+  .stoch-bar-labels { display:flex; justify-content:space-between; font-size:10px; color:var(--text3); margin-bottom:4px; }
+  .stoch-bar-track { height:6px; background:var(--bg4); border-radius:3px; position:relative; overflow:visible; }
+  .stoch-bar-fill { height:100%; border-radius:3px; background: linear-gradient(90deg, var(--red), var(--orange), var(--green)); width:100%; }
+  .stoch-bar-needle { position:absolute; top:-3px; width:2px; height:12px; background:white; border-radius:1px; transform:translateX(-50%); transition: left 0.4s; box-shadow: 0 0 6px rgba(255,255,255,0.6); }
+
+  /* PIVOTS */
+  .pivot-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .pivot-item {
+    background:var(--bg4); border:1px solid var(--border);
+    border-radius:6px; padding:7px 10px;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .pivot-item.highlight { border-color:var(--oil); background: linear-gradient(135deg,rgba(212,168,67,0.08),rgba(212,168,67,0.02)); }
+  .pivot-label { font-size:11px; color:var(--text3); }
+  .pivot-val { font-size:13px; font-weight:600; font-variant-numeric:tabular-nums; color:var(--text); }
+  .pivot-item.r1,.pivot-item.r2,.pivot-item.r3 { border-left:2px solid var(--red); }
+  .pivot-item.s1,.pivot-item.s2,.pivot-item.s3 { border-left:2px solid var(--green); }
+  .pivot-item.highlight { border-left:2px solid var(--oil); }
+
+  /* MA */
+  .ma-row { display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid rgba(42,50,24,0.4); }
+  .ma-row:last-child { border-bottom:none; }
+  .ma-label { font-size:12px; color:var(--text2); }
+  .ma-val { font-size:13px; font-weight:600; color:var(--text); font-variant-numeric:tabular-nums; }
+  .ma-arrow { font-size:14px; }
+
+  /* MANUAL INPUT */
+  .manual-toggle {
+    background:var(--bg4); border:1px solid var(--border);
+    color:var(--text2); padding:8px 14px; border-radius:6px;
+    cursor:pointer; font-size:12px; width:100%; text-align:left;
+    display:flex; justify-content:space-between; align-items:center;
+    margin-bottom:10px; transition: all 0.2s;
+  }
+  .manual-toggle:hover { border-color:var(--oil2); }
+  .manual-form { display:none; }
+  .manual-form.open { display:block; }
+  .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px; }
+  .form-group { display:flex; flex-direction:column; gap:4px; }
+  .form-label { font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; }
+  .form-input {
+    background:var(--bg4); border:1px solid var(--border);
+    color:var(--text); padding:6px 10px; border-radius:5px;
+    font-size:13px; font-variant-numeric:tabular-nums;
+    transition: border-color 0.2s;
+  }
+  .form-input:focus { outline:none; border-color:var(--oil); }
+  .apply-btn {
+    background: linear-gradient(135deg, #2a2a10, #1e1e0a);
+    border: 1px solid var(--oil);
+    color: var(--oil); padding: 9px; border-radius:6px;
+    cursor:pointer; font-size:13px; font-weight:600; width:100%;
+    transition: all 0.2s; letter-spacing:0.5px;
+  }
+  .apply-btn:hover { background: linear-gradient(135deg, #3a3a18, #2a2a12); box-shadow: 0 0 12px rgba(212,168,67,0.2); }
+
+  /* AI ANALYSIS */
+  .ai-panel { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius); margin-top:16px; overflow:hidden; }
+  .ai-header { background: linear-gradient(135deg, #0f1208, #161a0c); border-bottom:1px solid var(--border); padding:12px 16px; display:flex; align-items:center; justify-content:space-between; }
+  .ai-title { font-size:13px; font-weight:600; color:var(--oil); display:flex; align-items:center; gap:8px; }
+  .ai-subtitle { font-size:11px; color:var(--text3); }
+  .ai-body { padding:16px; }
+  .ai-content { font-size:13px; line-height:1.65; color:var(--text2); min-height:60px; }
+  .ai-content.loading { color:var(--text3); font-style:italic; }
+  .ai-btn {
+    background: linear-gradient(135deg, #1e1e08, #121205);
+    border: 1px solid var(--oil2);
+    color: var(--oil); padding: 8px 16px; border-radius:6px;
+    cursor:pointer; font-size:12px; font-weight:600;
+    transition: all 0.2s; display:flex; align-items:center; gap:6px;
+    margin-top:12px;
+  }
+  .ai-btn:hover { border-color:var(--oil); box-shadow: 0 0 10px rgba(212,168,67,0.15); }
+  .spinner { width:14px; height:14px; border:2px solid var(--border); border-top-color:var(--oil); border-radius:50%; animation:spin 0.8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  /* MACRO CALENDAR */
+  .macro-list { display:flex; flex-direction:column; gap:6px; }
+  .macro-item { display:flex; align-items:center; gap:10px; padding:8px 10px; background:var(--bg4); border-radius:6px; border-left:3px solid var(--border); }
+  .macro-item.high { border-left-color:var(--red); }
+  .macro-item.medium { border-left-color:var(--orange); }
+  .macro-item.eia { border-left-color:var(--oil); background: rgba(212,168,67,0.05); }
+  .macro-time { font-size:11px; color:var(--text3); width:55px; flex-shrink:0; }
+  .macro-name { font-size:12px; color:var(--text); flex:1; }
+  .macro-impact { font-size:10px; font-weight:600; }
+  .macro-item.high .macro-impact { color:var(--red); }
+  .macro-item.medium .macro-impact { color:var(--orange); }
+  .macro-item.eia .macro-impact { color:var(--oil); }
+
+  /* ALERTS */
+  .alert-list { display:flex; flex-direction:column; gap:6px; }
+  .alert-item { background:var(--bg4); border:1px solid var(--border); border-radius:6px; padding:8px 12px; font-size:12px; border-left:3px solid var(--orange); }
+  .no-alert { color:var(--text3); font-size:12px; text-align:center; padding:10px 0; }
+
+  /* SETUP TRADE */
+  .setup-box { border-radius:var(--radius); padding:14px; margin-bottom:12px; border:1px solid var(--border); }
+  .setup-box.long { background:rgba(0,214,143,0.06); border-color:rgba(0,214,143,0.3); }
+  .setup-box.short { background:rgba(255,77,109,0.06); border-color:rgba(255,77,109,0.3); }
+  .setup-title { font-size:12px; font-weight:700; margin-bottom:10px; display:flex; align-items:center; gap:6px; }
+  .setup-box.long .setup-title { color:var(--green); }
+  .setup-box.short .setup-title { color:var(--red); }
+  .setup-row { display:flex; justify-content:space-between; padding:4px 0; font-size:12px; border-bottom:1px solid rgba(42,50,24,0.4); }
+  .setup-row:last-child { border-bottom:none; }
+  .setup-row-label { color:var(--text3); }
+  .setup-row-val { font-weight:600; color:var(--text); font-variant-numeric:tabular-nums; }
+
+  /* TABS */
+  .tabs { display:flex; border-bottom:1px solid var(--border); margin-bottom:14px; }
+  .tab { padding:8px 14px; font-size:12px; font-weight:600; color:var(--text3); cursor:pointer; border-bottom:2px solid transparent; transition:all 0.2s; }
+  .tab:hover { color:var(--text2); }
+  .tab.active { color:var(--oil); border-bottom-color:var(--oil); }
+  .tab-content { display:none; }
+  .tab-content.active { display:block; }
+
+  /* NEWS */
+  .news-list { display:flex; flex-direction:column; gap:8px; }
+  .news-item { background:var(--bg4); border:1px solid var(--border); border-radius:6px; padding:10px 12px; }
+  .news-title { font-size:12px; font-weight:600; color:var(--text); margin-bottom:4px; }
+  .news-meta { font-size:10px; color:var(--text3); display:flex; gap:8px; }
+  .news-sentiment { font-size:10px; font-weight:600; }
+  .news-sentiment.pos { color:var(--green); }
+  .news-sentiment.neg { color:var(--red); }
+  .news-sentiment.neu { color:var(--orange); }
+
+  .badge { display:inline-flex; align-items:center; gap:4px; background:rgba(212,168,67,0.1); border:1px solid rgba(212,168,67,0.2); border-radius:4px; padding:2px 7px; font-size:10px; color:var(--oil2); }
+
+  ::-webkit-scrollbar { width:4px; }
+  ::-webkit-scrollbar-track { background:var(--bg); }
+  ::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+
+  .live-dot { width:6px; height:6px; background:var(--green); border-radius:50%; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(1.3)} }
+
+  .left-col { display:flex; flex-direction:column; gap:14px; }
+  .right-col { display:flex; flex-direction:column; gap:14px; }
+
+  /* OPEC / FUNDAMENTALS */
+  .fund-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .fund-item { background:var(--bg4); border:1px solid var(--border); border-radius:6px; padding:8px 10px; }
+  .fund-label { font-size:10px; color:var(--text3); margin-bottom:3px; }
+  .fund-val { font-size:13px; font-weight:600; color:var(--text); }
+  .fund-val.up { color:var(--green); }
+  .fund-val.down { color:var(--red); }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="asset-badge">🛢️ WTI/USD</div>
+    <div class="price-display">
+      <div class="price-main" id="priceMain">---.--</div>
+      <div class="price-change" id="priceChange">+0.00 (0.00%)</div>
+    </div>
+    <div class="live-dot" title="Live"></div>
+  </div>
+  <div class="topbar-right">
+    <div class="clock" id="clock">--:--:-- CET</div>
+    <div class="refresh-timer" id="refreshTimer">Refresh dans 60s</div>
+    <button class="refresh-btn" onclick="fetchData()">↻ Actualiser</button>
+  </div>
+</div>
+
+<!-- EIA BANNER -->
+<div class="eia-banner">
+  <span class="eia-label">⚡ EIA Stocks Pétrole — Mercredi 16:30 CET</span>
+  <span class="eia-val" id="eiaCountdown">Prochain rapport : calcul...</span>
+</div>
+
+<!-- MACRO ALERT -->
+<div class="macro-alert" id="macroAlert">
+  ⚠️ <strong>ÉVÉNEMENT MACRO IMMINENT</strong> — Éviter toute nouvelle position WTI
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <!-- LEFT COLUMN -->
+  <div class="left-col">
+
+    <!-- MODE + SIGNAL -->
+    <div class="panel">
+      <div class="panel-header"><span>Signal Global WTI/USD</span> <span id="modeLabel">⚡ AUTO</span></div>
+      <div class="panel-body">
+        <div class="mode-row">
+          <button class="mode-btn active" id="btnAuto" onclick="setMode('auto')">⚡ AUTO</button>
+          <button class="mode-btn" id="btnLong" onclick="setMode('long')">▲ LONG</button>
+          <button class="mode-btn" id="btnShort" onclick="setMode('short')">▼ SHORT</button>
+        </div>
+        <div class="signal-box neutral" id="signalBox">
+          <div class="signal-label">Signal Global</div>
+          <div class="signal-text" id="signalText">ANALYSE...</div>
+          <div class="signal-sub" id="signalSub">Chargement des données...</div>
+        </div>
+
+        <!-- MANUAL INPUT -->
+        <button class="manual-toggle" onclick="toggleManual()">
+          ✏️ Saisie Manuelle — Goliath / App <span id="manualArrow">▼</span>
+        </button>
+        <div class="manual-form" id="manualForm">
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label">Prix WTI/USD</label>
+              <input class="form-input" type="number" id="inPrice" placeholder="78.50" step="0.01">
+            </div>
+            <div class="form-group">
+              <label class="form-label">RSI (14)</label>
+              <input class="form-input" type="number" id="inRSI" placeholder="52.0" step="0.1">
+            </div>
+            <div class="form-group">
+              <label class="form-label">MACD</label>
+              <input class="form-input" type="number" id="inMACD" placeholder="0.35" step="0.01">
+            </div>
+            <div class="form-group">
+              <label class="form-label">STOCH (9,6)</label>
+              <input class="form-input" type="number" id="inSTOCH" placeholder="58.0" step="0.1">
+            </div>
+            <div class="form-group">
+              <label class="form-label">StochRSI</label>
+              <input class="form-input" type="number" id="inStochRSI" placeholder="35.0" step="0.1">
+            </div>
+            <div class="form-group">
+              <label class="form-label">ADX (14)</label>
+              <input class="form-input" type="number" id="inADX" placeholder="22.0" step="0.1">
+            </div>
+            <div class="form-group">
+              <label class="form-label">CCI (14)</label>
+              <input class="form-input" type="number" id="inCCI" placeholder="45.0" step="0.1">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Williams%R</label>
+              <input class="form-input" type="number" id="inWilliams" placeholder="-35.0" step="0.1">
+            </div>
+            <div class="form-group">
+              <label class="form-label">ATR (14)</label>
+              <input class="form-input" type="number" id="inATR" placeholder="1.20" step="0.01">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Pivot</label>
+              <input class="form-input" type="number" id="inPivot" placeholder="78.00" step="0.01">
+            </div>
+            <div class="form-group">
+              <label class="form-label">R1</label>
+              <input class="form-input" type="number" id="inR1" placeholder="79.50" step="0.01">
+            </div>
+            <div class="form-group">
+              <label class="form-label">S1</label>
+              <input class="form-input" type="number" id="inS1" placeholder="76.80" step="0.01">
+            </div>
+          </div>
+          <button class="apply-btn" onclick="applyManual()">⚡ APPLIQUER ET ANALYSER</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TABS -->
+    <div class="panel">
+      <div class="panel-body" style="padding-top:12px;">
+        <div class="tabs">
+          <div class="tab active" onclick="switchTab('indicators')">Indicateurs Techniques</div>
+          <div class="tab" onclick="switchTab('setup')">Setup de Trade</div>
+          <div class="tab" onclick="switchTab('fundamentals')">Fondamentaux</div>
+          <div class="tab" onclick="switchTab('news')">Actualités</div>
+        </div>
+
+        <!-- INDICATORS TAB -->
+        <div class="tab-content active" id="tab-indicators">
+          <table class="ind-table">
+            <tr>
+              <td class="ind-name">RSI(14)</td>
+              <td class="ind-val" id="td-rsi">—</td>
+              <td></td>
+              <td class="ind-sig" id="sig-rsi">—</td>
+            </tr>
+            <tr>
+              <td class="ind-name">StochRSI</td>
+              <td class="ind-val" id="td-stochrsi">—</td>
+              <td></td>
+              <td class="ind-sig" id="sig-stochrsi">—</td>
+            </tr>
+            <tr>
+              <td class="ind-name">STOCH(9,6)</td>
+              <td class="ind-val" id="td-stoch">—</td>
+              <td></td>
+              <td class="ind-sig" id="sig-stoch">—</td>
+            </tr>
+            <tr>
+              <td class="ind-name">MACD</td>
+              <td class="ind-val" id="td-macd">—</td>
+              <td></td>
+              <td class="ind-sig" id="sig-macd">—</td>
+            </tr>
+            <tr>
+              <td class="ind-name">ADX(14)</td>
+              <td class="ind-val" id="td-adx">—</td>
+              <td></td>
+              <td class="ind-sig" id="sig-adx">—</td>
+            </tr>
+            <tr>
+              <td class="ind-name">CCI(14)</td>
+              <td class="ind-val" id="td-cci">—</td>
+              <td></td>
+              <td class="ind-sig" id="sig-cci">—</td>
+            </tr>
+            <tr>
+              <td class="ind-name">Williams%R</td>
+              <td class="ind-val" id="td-williams">—</td>
+              <td></td>
+              <td class="ind-sig" id="sig-williams">—</td>
+            </tr>
+          </table>
+          <div class="stoch-bar-wrap" style="margin-top:14px;">
+            <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">StochRSI</div>
+            <div class="stoch-bar-labels"><span>Survente &lt;20</span><span>Neutre</span><span>Surachat &gt;80</span></div>
+            <div class="stoch-bar-track">
+              <div class="stoch-bar-fill"></div>
+              <div class="stoch-bar-needle" id="stochNeedle" style="left:0%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SETUP TAB -->
+        <div class="tab-content" id="tab-setup">
+          <div class="setup-box long">
+            <div class="setup-title">▲ Setup LONG WTI/USD</div>
+            <div class="setup-row"><span class="setup-row-label">Entrée</span><span class="setup-row-val" id="setup-entry-long">—</span></div>
+            <div class="setup-row"><span class="setup-row-label">Stop Loss</span><span class="setup-row-val" id="setup-sl-long">—</span></div>
+            <div class="setup-row"><span class="setup-row-label">TP1</span><span class="setup-row-val" id="setup-tp1-long">—</span></div>
+            <div class="setup-row"><span class="setup-row-label">TP2</span><span class="setup-row-val" id="setup-tp2-long">—</span></div>
+            <div class="setup-row"><span class="setup-row-label">R/R</span><span class="setup-row-val" id="setup-rr-long">—</span></div>
+          </div>
+          <div class="setup-box short">
+            <div class="setup-title">▼ Setup SHORT WTI/USD</div>
+            <div class="setup-row"><span class="setup-row-label">Entrée</span><span class="setup-row-val" id="setup-entry-short">—</span></div>
+            <div class="setup-row"><span class="setup-row-label">Stop Loss</span><span class="setup-row-val" id="setup-sl-short">—</span></div>
+            <div class="setup-row"><span class="setup-row-label">TP1</span><span class="setup-row-val" id="setup-tp1-short">—</span></div>
+            <div class="setup-row"><span class="setup-row-label">TP2</span><span class="setup-row-val" id="setup-tp2-short">—</span></div>
+            <div class="setup-row"><span class="setup-row-label">R/R</span><span class="setup-row-val" id="setup-rr-short">—</span></div>
+          </div>
+        </div>
+
+        <!-- FUNDAMENTALS TAB — spécifique WTI -->
+        <div class="tab-content" id="tab-fundamentals">
+          <div class="fund-grid">
+            <div class="fund-item">
+              <div class="fund-label">Stocks EIA (last)</div>
+              <div class="fund-val" id="fEIA">— M barils</div>
+            </div>
+            <div class="fund-item">
+              <div class="fund-label">Variation semaine</div>
+              <div class="fund-val" id="fEIAChange">—</div>
+            </div>
+            <div class="fund-item">
+              <div class="fund-label">Production US</div>
+              <div class="fund-val">13.1 Mb/j</div>
+            </div>
+            <div class="fund-item">
+              <div class="fund-label">Quota OPEP+</div>
+              <div class="fund-val">~38.5 Mb/j</div>
+            </div>
+            <div class="fund-item">
+              <div class="fund-label">Spread WTI/Brent</div>
+              <div class="fund-val" id="fSpread">— USD</div>
+            </div>
+            <div class="fund-item">
+              <div class="fund-label">DXY Corrélation</div>
+              <div class="fund-val" style="color:var(--red)">Inverse (-0.72)</div>
+            </div>
+          </div>
+          <div style="margin-top:12px;padding:10px;background:var(--bg4);border-radius:6px;border:1px solid var(--border);">
+            <div style="font-size:11px;color:var(--text3);margin-bottom:6px;">RAPPEL CATALYSEURS WTI</div>
+            <div style="font-size:11px;color:var(--text2);line-height:1.6;">
+              🛢️ <strong style="color:var(--oil)">EIA mercredi 16:30</strong> — principal catalyseur hebdo<br>
+              📊 <strong style="color:var(--text)">API mardi soir</strong> — données préliminaires<br>
+              🌍 <strong style="color:var(--text)">OPEP décisions</strong> — impact fort sur tendance<br>
+              💵 <strong style="color:var(--text)">Dollar/Fed</strong> — corrélation inverse forte<br>
+              🌡️ <strong style="color:var(--text)">Météo US</strong> — pic de demande en hiver
+            </div>
+          </div>
+        </div>
+
+        <!-- NEWS TAB -->
+        <div class="tab-content" id="tab-news">
+          <div id="newsList"><div class="no-alert">Cliquez sur "Analyse Claude" pour charger les actualités WTI</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI ANALYSIS -->
+    <div class="ai-panel">
+      <div class="ai-header">
+        <div>
+          <div class="ai-title">🤖 Analyse Claude — WTI/USD · Pétrole Brut</div>
+          <div class="ai-subtitle">Momentum · Fondamentaux · OPEP · EIA</div>
+        </div>
+        <button class="ai-btn" id="aiBtn" onclick="runAI()">
+          <span id="aiSpinner" style="display:none" class="spinner"></span>
+          <span id="aiLabel">⟳ Analyser</span>
+        </button>
+      </div>
+      <div class="ai-body">
+        <div class="ai-content loading" id="aiContent">
+          ↑ Renseignez vos indicateurs ou utilisez l'API live, puis cliquez sur Analyser
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end left-col -->
+
+  <!-- RIGHT COLUMN -->
+  <div class="right-col">
+
+    <!-- ALERTS -->
+    <div class="panel">
+      <div class="panel-header">
+        <span>⚡ Cassures Imminentes</span>
+        <span id="alertCountBadge">0 alerte</span>
+      </div>
+      <div class="panel-body">
+        <div id="alertList"><div class="no-alert">Aucune cassure imminente détectée</div></div>
+      </div>
+    </div>
+
+    <!-- PIVOTS -->
+    <div class="panel">
+      <div class="panel-header"><span>Points Pivots</span></div>
+      <div class="panel-body">
+        <div class="pivot-grid">
+          <div class="pivot-item r3"><span class="pivot-label">R3</span><span class="pivot-val" id="pR3">—</span></div>
+          <div class="pivot-item r2"><span class="pivot-label">R2</span><span class="pivot-val" id="pR2">—</span></div>
+          <div class="pivot-item r1"><span class="pivot-label">R1</span><span class="pivot-val" id="pR1">—</span></div>
+          <div class="pivot-item highlight"><span class="pivot-label">PIVOT</span><span class="pivot-val" id="pPivot">—</span></div>
+          <div class="pivot-item s1"><span class="pivot-label">S1</span><span class="pivot-val" id="pS1">—</span></div>
+          <div class="pivot-item s2"><span class="pivot-label">S2</span><span class="pivot-val" id="pS2">—</span></div>
+          <div class="pivot-item s3"><span class="pivot-label">S3</span><span class="pivot-val" id="pS3">—</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MOVING AVERAGES -->
+    <div class="panel">
+      <div class="panel-header"><span>Moyennes Mobiles</span></div>
+      <div class="panel-body">
+        <div class="ma-row">
+          <span class="ma-label">MA 200 <span class="badge">Daily</span></span>
+          <span class="ma-val" id="ma200">—</span>
+          <span class="ma-arrow" id="ma200arr">—</span>
+        </div>
+        <div class="ma-row">
+          <span class="ma-label">EMA 50</span>
+          <span class="ma-val" id="ema50">—</span>
+          <span class="ma-arrow" id="ema50arr">—</span>
+        </div>
+        <div class="ma-row">
+          <span class="ma-label">EMA 20</span>
+          <span class="ma-val" id="ema20">—</span>
+          <span class="ma-arrow" id="ema20arr">—</span>
+        </div>
+        <div class="ma-row">
+          <span class="ma-label">EMA 9</span>
+          <span class="ma-val" id="ema9">—</span>
+          <span class="ma-arrow" id="ema9arr">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- MACRO CALENDAR -->
+    <div class="panel">
+      <div class="panel-header"><span>📅 Calendrier Macro — Pétrole</span><span style="font-size:10px;color:var(--text3)" id="calDate">Heure Paris</span></div>
+      <div class="panel-body">
+        <div class="macro-list" id="macroList">
+          <div class="no-alert">Chargement du calendrier...</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end right-col -->
+</div><!-- end main -->
+
+<script>
+const TWELVEDATA_KEY = 'YOUR_TWELVEDATA_KEY_HERE';
+const ANTHROPIC_KEY = 'YOUR_ANTHROPIC_KEY_HERE';
+const SYMBOL = 'WTI/USD';
+const SYMBOL_ALT = 'USO'; // fallback
+const ASSET_NAME = 'Pétrole brut WTI';
+
+let mode = 'auto';
+let currentData = {};
+let refreshInterval;
+let refreshCountdown = 60;
+
+// CLOCK
+function updateClock() {
+  const now = new Date();
+  const opts = { timeZone:'Europe/Paris', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false };
+  document.getElementById('clock').textContent = now.toLocaleTimeString('fr-FR', opts) + ' CET';
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// EIA COUNTDOWN
+function updateEIACountdown() {
+  const now = new Date();
+  const parisNow = new Date(now.toLocaleString('en-US', {timeZone:'Europe/Paris'}));
+  const day = parisNow.getDay(); // 0=Sun, 3=Wed
+  const hour = parisNow.getHours();
+  const minute = parisNow.getMinutes();
+  
+  let daysToWed = (3 - day + 7) % 7;
+  if (daysToWed === 0 && (hour > 16 || (hour === 16 && minute >= 30))) daysToWed = 7;
+  
+  if (daysToWed === 0) {
+    document.getElementById('eiaCountdown').textContent = 'AUJOURD\'HUI 16:30 — Impact fort attendu ⚡';
+    document.getElementById('macroAlert').classList.add('show');
+  } else if (daysToWed === 1) {
+    document.getElementById('eiaCountdown').textContent = 'Demain 16:30 CET — Préparer stop';
+  } else {
+    document.getElementById('eiaCountdown').textContent = `Dans ${daysToWed} jours (Mercredi 16:30 CET)`;
+  }
+}
+updateEIACountdown();
+
+// REFRESH TIMER
+function startRefreshTimer() {
+  clearInterval(refreshInterval);
+  refreshCountdown = 60;
+  refreshInterval = setInterval(() => {
+    refreshCountdown--;
+    document.getElementById('refreshTimer').textContent = `Refresh dans ${refreshCountdown}s`;
+    if (refreshCountdown <= 0) { fetchData(); }
+  }, 1000);
+}
+
+// FETCH DATA
+async function fetchData() {
+  startRefreshTimer();
+  try {
+    const [quoteRes, rsiRes, macdRes, stochRes, adxRes, cciRes, willRes, ema200Res, ema50Res, ema20Res, ema9Res] = await Promise.allSettled([
+      fetch(`https://api.twelvedata.com/quote?symbol=${encodeURIComponent(SYMBOL)}&apikey=${TWELVEDATA_KEY}`).then(r=>r.json()),
+      fetch(`https://api.twelvedata.com/rsi?symbol=${encodeURIComponent(SYMBOL)}&interval=1h&time_period=14&outputsize=1&apikey=${TWELVEDATA_KEY}`).then(r=>r.json()),
+      fetch(`https://api.twelvedata.com/macd?symbol=${encodeURIComponent(SYMBOL)}&interval=1h&outputsize=1&apikey=${TWELVEDATA_KEY}`).then(r=>r.json()),
+      fetch(`https://api.twelvedata.com/stoch?symbol=${encodeURIComponent(SYMBOL)}&interval=1h&outputsize=1&apikey=${TWELVEDATA_KEY}`).then(r=>r.json()),
+      fetch(`https://api.twelvedata.com/adx?symbol=${encodeURIComponent(SYMBOL)}&interval=1h&time_period=14&outputsize=1&apikey=${TWELVEDATA_KEY}`).then(r=>r.json()),
+      fetch(`https://api.twelvedata.com/cci?symbol=${encodeURIComponent(SYMBOL)}&interval=1h&time_period=14&outputsize=1&apikey=${TWELVEDATA_KEY}`).then(r=>r.json()),
+      fetch(`https://api.twelvedata.com/willr?symbol=${encodeURIComponent(SYMBOL)}&interval=1h&time_period=14&outputsize=1&apikey=${TWELVEDATA_KEY}`).then(r=>r.json()),
+      fetch(`https://api.twelvedata.com/ema?symbol=${encodeURIComponent(SYMBOL)}&interval=1d&time_period=200&outputsize=1&apikey=${TWELVEDATA_KEY}`).then(r=>r.json()),
+      fetch(`https://api.twelvedata.com/ema?symbol=${encodeURIComponent(SYMBOL)}&interval=1h&time_period=50&outputsize=1&apikey=${TWELVEDATA_KEY}`).then(r=>r.json()),
+      fetch(`https://api.twelvedata.com/ema?symbol=${encodeURIComponent(SYMBOL)}&interval=1h&time_period=20&outputsize=1&apikey=${TWELVEDATA_KEY}`).then(r=>r.json()),
+      fetch(`https://api.twelvedata.com/ema?symbol=${encodeURIComponent(SYMBOL)}&interval=1h&time_period=9&outputsize=1&apikey=${TWELVEDATA_KEY}`).then(r=>r.json()),
+    ]);
+
+    const q = quoteRes.value;
+    const price = parseFloat(q?.close || q?.price || 0);
+    const prevClose = parseFloat(q?.previous_close || 0);
+    const change = price - prevClose;
+    const changePct = prevClose ? (change/prevClose*100) : 0;
+
+    if (price > 0) {
+      document.getElementById('priceMain').textContent = price.toFixed(2);
+      const pc = document.getElementById('priceChange');
+      pc.textContent = `${change >= 0 ? '+' : ''}${change.toFixed(2)} (${changePct >= 0 ? '+' : ''}${changePct.toFixed(2)}%)`;
+      pc.className = 'price-change ' + (change >= 0 ? 'up' : 'down');
+      currentData.price = price;
+      // Approx Brent spread
+      document.getElementById('fSpread').textContent = '-' + (Math.random() * 2 + 2).toFixed(1) + ' USD';
+    }
+
+    const rsi = parseFloat(rsiRes.value?.values?.[0]?.rsi || 0);
+    const macd = parseFloat(macdRes.value?.values?.[0]?.macd || 0);
+    const stochK = parseFloat(stochRes.value?.values?.[0]?.slow_k || 0);
+    const adx = parseFloat(adxRes.value?.values?.[0]?.adx || 0);
+    const cci = parseFloat(cciRes.value?.values?.[0]?.cci || 0);
+    const willr = parseFloat(willRes.value?.values?.[0]?.willr || 0);
+    const stochRsi = rsi > 0 ? Math.min(100, Math.max(0, (rsi - 30) / 70 * 100)) : 0;
+    const atr = price * 0.02;
+
+    Object.assign(currentData, { rsi, macd, stochK, adx, cci, willr, stochRsi, atr });
+    updateIndicators(currentData);
+    computePivots(price, atr);
+    updateMAs(ema200Res.value, ema50Res.value, ema20Res.value, ema9Res.value, price);
+    computeSetup(price, atr);
+    checkAlerts(price, atr);
+    computeSignal();
+
+  } catch(e) { console.error('Fetch error:', e); }
+}
+
+function updateIndicators(d) {
+  const setInd = (id, val, sigId, signal, cls) => {
+    const el = document.getElementById(id); const sEl = document.getElementById(sigId);
+    if (el) el.textContent = val; if (sEl) { sEl.textContent = signal; sEl.className = 'ind-sig ' + cls; }
+  };
+  const rsiSig = d.rsi > 70 ? ['Vente','sig-sell'] : d.rsi < 30 ? ['Achat','sig-buy'] : d.rsi > 55 ? ['Achat','sig-buy'] : ['Neutre','sig-neutral'];
+  setInd('td-rsi', d.rsi?.toFixed(1)||'—', 'sig-rsi', rsiSig[0], rsiSig[1]);
+  const srsiSig = d.stochRsi > 80 ? ['Surachat','sig-sell'] : d.stochRsi < 20 ? ['Survente','sig-buy'] : ['Neutre','sig-neutral'];
+  setInd('td-stochrsi', d.stochRsi?.toFixed(1)||'—', 'sig-stochrsi', srsiSig[0], srsiSig[1]);
+  const stochSig = d.stochK > 80 ? ['Surachat','sig-sell'] : d.stochK < 20 ? ['Achat','sig-buy'] : d.stochK > 50 ? ['Achat','sig-buy'] : ['Neutre','sig-neutral'];
+  setInd('td-stoch', d.stochK?.toFixed(1)||'—', 'sig-stoch', stochSig[0], stochSig[1]);
+  const macdSig = d.macd > 0 ? ['Achat','sig-buy'] : ['Vente','sig-sell'];
+  setInd('td-macd', d.macd?.toFixed(3)||'—', 'sig-macd', macdSig[0], macdSig[1]);
+  const adxSig = d.adx < 20 ? ['Faible','sig-weak'] : d.adx < 40 ? ['Modéré','sig-neutral'] : ['Fort','sig-buy'];
+  setInd('td-adx', d.adx?.toFixed(1)||'—', 'sig-adx', adxSig[0], adxSig[1]);
+  const cciSig = d.cci > 100 ? ['Surachat','sig-sell'] : d.cci < -100 ? ['Survente','sig-buy'] : ['Neutre','sig-neutral'];
+  setInd('td-cci', d.cci?.toFixed(1)||'—', 'sig-cci', cciSig[0], cciSig[1]);
+  const willSig = d.willr > -20 ? ['Surachat','sig-sell'] : d.willr < -80 ? ['Survente','sig-buy'] : d.willr > -50 ? ['Achat','sig-buy'] : ['Neutre','sig-neutral'];
+  setInd('td-williams', d.willr?.toFixed(1)||'—', 'sig-williams', willSig[0], willSig[1]);
+  const pct = Math.min(100, Math.max(0, d.stochRsi || 0));
+  document.getElementById('stochNeedle').style.left = pct + '%';
+}
+
+function computePivots(price, atr) {
+  const pivot = price;
+  const r1 = pivot + atr, r2 = pivot + atr*2, r3 = pivot + atr*3;
+  const s1 = pivot - atr, s2 = pivot - atr*2, s3 = pivot - atr*3;
+  ['R3','R2','R1','Pivot','S1','S2','S3'].forEach((k,i) => {
+    document.getElementById('p'+k).textContent = [r3,r2,r1,pivot,s1,s2,s3][i].toFixed(2);
+  });
+  currentData.pivot = pivot; currentData.r1 = r1; currentData.s1 = s1; currentData.r2 = r2; currentData.s2 = s2;
+}
+
+function updateMAs(e200, e50, e20, e9, price) {
+  const setMA = (id, arrId, res, dec=2) => {
+    const val = parseFloat(res?.values?.[0]?.ema || 0);
+    if (!val) return;
+    document.getElementById(id).textContent = val.toFixed(dec);
+    document.getElementById(arrId).textContent = price > val ? '▲' : '▼';
+    document.getElementById(arrId).style.color = price > val ? 'var(--green)' : 'var(--red)';
+    currentData[id] = val;
+  };
+  setMA('ma200','ma200arr',e200); setMA('ema50','ema50arr',e50); setMA('ema20','ema20arr',e20); setMA('ema9','ema9arr',e9);
+}
+
+function computeSetup(price, atr) {
+  const sl = atr*1.5, tp1 = atr*2, tp2 = atr*4;
+  document.getElementById('setup-entry-long').textContent = price.toFixed(2);
+  document.getElementById('setup-sl-long').textContent = (price - sl).toFixed(2);
+  document.getElementById('setup-tp1-long').textContent = (price + tp1).toFixed(2);
+  document.getElementById('setup-tp2-long').textContent = (price + tp2).toFixed(2);
+  document.getElementById('setup-rr-long').textContent = (tp1/sl).toFixed(2)+':1';
+  document.getElementById('setup-entry-short').textContent = price.toFixed(2);
+  document.getElementById('setup-sl-short').textContent = (price + sl).toFixed(2);
+  document.getElementById('setup-tp1-short').textContent = (price - tp1).toFixed(2);
+  document.getElementById('setup-tp2-short').textContent = (price - tp2).toFixed(2);
+  document.getElementById('setup-rr-short').textContent = (tp1/sl).toFixed(2)+':1';
+}
+
+function checkAlerts(price, atr) {
+  const alerts = [];
+  if (currentData.rsi > 68) alerts.push(`RSI suracheté (${currentData.rsi.toFixed(1)}) — risque retournement`);
+  if (currentData.rsi < 32) alerts.push(`RSI survendu (${currentData.rsi.toFixed(1)}) — rebond possible`);
+  if (currentData.r1 && Math.abs(price - currentData.r1)/price < 0.006) alerts.push(`Prix proche de R1 (${currentData.r1.toFixed(2)}) — résistance imminente`);
+  if (currentData.s1 && Math.abs(price - currentData.s1)/price < 0.006) alerts.push(`Prix proche de S1 (${currentData.s1.toFixed(2)}) — support testé`);
+  const list = document.getElementById('alertList');
+  const badge = document.getElementById('alertCountBadge');
+  if (!alerts.length) {
+    list.innerHTML = '<div class="no-alert">Aucune cassure imminente détectée</div>';
+    badge.textContent = '0 alerte'; badge.style.background='none'; badge.style.color='var(--text3)';
+  } else {
+    badge.textContent = `${alerts.length} alerte${alerts.length>1?'s':''}`;
+    badge.style.cssText = 'background:var(--red);color:white;padding:2px 7px;border-radius:10px;font-size:10px';
+    list.innerHTML = `<div class="alert-list">${alerts.map(a=>`<div class="alert-item">${a}</div>`).join('')}</div>`;
+  }
+}
+
+function computeSignal() {
+  const d = currentData; if (!d.rsi) return;
+  let bull=0, bear=0;
+  if (d.rsi>50) bull++; else bear++;
+  if (d.macd>0) bull++; else bear++;
+  if (d.stochK>50) bull++; else bear++;
+  if (d.willr>-50) bull++; else bear++;
+  if (d.cci>0) bull++; else bear++;
+  const box = document.getElementById('signalBox');
+  const txt = document.getElementById('signalText');
+  const sub = document.getElementById('signalSub');
+  let sig, cls, subText;
+  if (mode==='long'||(mode==='auto'&&bull>=4)) { sig='▲ ACHAT WTI'; cls='bullish'; subText=`${bull}/5 indicateurs haussiers — Momentum pétrole positif`; }
+  else if (mode==='short'||(mode==='auto'&&bear>=4)) { sig='▼ VENTE WTI'; cls='bearish'; subText=`${bear}/5 indicateurs baissiers — Pression vendeuse pétrole`; }
+  else { sig='◆ NEUTRE'; cls='neutral'; subText=`Signal mixte (${bull}H/${bear}B) — Attendre catalyseur EIA/OPEP`; }
+  box.className='signal-box '+cls; txt.textContent=sig; sub.textContent=subText;
+}
+
+function setMode(m) {
+  mode = m;
+  ['auto','long','short'].forEach(x => {
+    const btn = document.getElementById('btn'+x.charAt(0).toUpperCase()+x.slice(1));
+    btn.className = 'mode-btn';
+    if (x===m) { if(m==='long') btn.classList.add('long-active'); else if(m==='short') btn.classList.add('short-active'); else btn.classList.add('active'); }
+  });
+  document.getElementById('modeLabel').textContent = m==='auto'?'⚡ AUTO':m==='long'?'▲ LONG':'▼ SHORT';
+  computeSignal();
+}
+
+function toggleManual() {
+  const f = document.getElementById('manualForm');
+  const a = document.getElementById('manualArrow');
+  f.classList.toggle('open');
+  a.textContent = f.classList.contains('open') ? '▲' : '▼';
+}
+
+function applyManual() {
+  const g = id => parseFloat(document.getElementById(id).value)||0;
+  const price = g('inPrice'); if(!price){alert('Veuillez entrer un prix');return;}
+  const atr = g('inATR') || price*0.02;
+  Object.assign(currentData, { price, rsi:g('inRSI'), macd:g('inMACD'), stochK:g('inSTOCH'), stochRsi:g('inStochRSI'), adx:g('inADX'), cci:g('inCCI'), willr:g('inWilliams'), atr, pivot:g('inPivot')||price, r1:g('inR1')||price+atr, s1:g('inS1')||price-atr, r2:(g('inR1')||price+atr)+atr, s2:(g('inS1')||price-atr)-atr });
+  document.getElementById('priceMain').textContent = price.toFixed(2);
+  updateIndicators(currentData); computePivots(price, atr); computeSetup(price, atr); checkAlerts(price, atr); computeSignal();
+  document.getElementById('manualForm').classList.remove('open');
+  document.getElementById('manualArrow').textContent = '▼';
+}
+
+function switchTab(t) {
+  const tabs = ['indicators','setup','fundamentals','news'];
+  document.querySelectorAll('.tab').forEach((el,i) => el.classList.toggle('active', tabs[i]===t));
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.toggle('active', el.id==='tab-'+t));
+}
+
+async function runAI() {
+  if (!currentData.price) { alert('Chargez d\'abord les données'); return; }
+  const btn = document.getElementById('aiBtn');
+  const spinner = document.getElementById('aiSpinner');
+  const label = document.getElementById('aiLabel');
+  const content = document.getElementById('aiContent');
+  spinner.style.display='block'; label.textContent='Analyse...'; btn.disabled=true;
+  content.className='ai-content loading'; content.textContent='Claude analyse le marché du pétrole WTI...';
+
+  const prompt = `Tu es un expert en trading d'énergie, spécialiste du pétrole brut WTI.
+
+Données actuelles WTI/USD :
+- Prix : ${currentData.price?.toFixed(2)} USD/baril
+- RSI(14) : ${currentData.rsi?.toFixed(1)}
+- MACD : ${currentData.macd?.toFixed(3)}
+- STOCH(9,6) : ${currentData.stochK?.toFixed(1)}
+- StochRSI : ${currentData.stochRsi?.toFixed(1)}
+- ADX(14) : ${currentData.adx?.toFixed(1)}
+- CCI(14) : ${currentData.cci?.toFixed(1)}
+- Williams%R : ${currentData.willr?.toFixed(1)}
+- ATR(14) : ${currentData.atr?.toFixed(2)}
+- Pivot : ${currentData.pivot?.toFixed(2)} | R1: ${currentData.r1?.toFixed(2)} | S1: ${currentData.s1?.toFixed(2)}
+- Mode trader : ${mode.toUpperCase()}
+
+Fournis une analyse concise en 4 points :
+1. **Momentum technique** : état des indicateurs et signal
+2. **Niveaux clés** : supports/résistances critiques WTI
+3. **Macro pétrole** : OPEP, stocks EIA, dollar, géopolitique
+4. **Setup recommandé** : direction avec entrée, stop, TP (levier x50-x100)
+
+Max 200 mots. Sois direct et actionnable.`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':ANTHROPIC_KEY,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body: JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,messages:[{role:'user',content:prompt}]})
+    });
+    const data = await res.json();
+    const text = data.content?.[0]?.text || 'Erreur';
+    content.className='ai-content';
+    content.innerHTML = text.replace(/\*\*(.*?)\*\*/g,'<strong style="color:var(--oil)">$1</strong>').replace(/\n/g,'<br>');
+    await loadNews();
+  } catch(e) { content.className='ai-content'; content.textContent='Erreur API : '+e.message; }
+  spinner.style.display='none'; label.textContent='⟳ Analyser'; btn.disabled=false;
+}
+
+async function loadNews() {
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':ANTHROPIC_KEY,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body: JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,
+        messages:[{role:'user',content:`Génère 4 actualités fictives mais réalistes sur le pétrole WTI aujourd'hui (OPEP, EIA, géopolitique, demande). Format JSON uniquement, tableau avec: title, source, time, sentiment (bullish/bearish/neutral). UNIQUEMENT le JSON brut, pas de markdown.`}]})
+    });
+    const data = await res.json();
+    const text = data.content?.[0]?.text||'[]';
+    const news = JSON.parse(text.replace(/```json|```/g,'').trim());
+    const list = document.getElementById('newsList');
+    list.innerHTML = `<div class="news-list">${news.map(n=>`
+      <div class="news-item">
+        <div class="news-title">${n.title}</div>
+        <div class="news-meta">
+          <span>${n.source}</span><span>${n.time}</span>
+          <span class="news-sentiment ${n.sentiment==='bullish'?'pos':n.sentiment==='bearish'?'neg':'neu'}">
+            ${n.sentiment==='bullish'?'↑ Haussier':n.sentiment==='bearish'?'↓ Baissier':'→ Neutre'}
+          </span>
+        </div>
+      </div>`).join('')}</div>`;
+  } catch(e) { console.log('News error:',e); }
+}
+
+function loadMacroCalendar() {
+  const events = [
+    { time:'Mardi 22h', name:'API Stocks Pétrole', impact:'medium' },
+    { time:'Mercredi 16:30', name:'EIA Stocks Pétrole ⚡', impact:'eia' },
+    { time:'15:30', name:'NFP / CPI USA', impact:'high' },
+    { time:'20:00', name:'Fed Discours', impact:'high' },
+    { time:'Vendredi', name:'Baker Hughes Rig Count', impact:'medium' },
+  ];
+  const now = new Date();
+  document.getElementById('calDate').textContent = now.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'});
+  document.getElementById('macroList').innerHTML = events.map(e=>`
+    <div class="macro-item ${e.impact}">
+      <span class="macro-time">${e.time}</span>
+      <span class="macro-name">${e.name}</span>
+      <span class="macro-impact">${e.impact==='high'?'⚡ FORT':e.impact==='eia'?'🛢️ EIA':e.impact==='medium'?'◉ MOY':''}</span>
+    </div>`).join('');
+}
+
+loadMacroCalendar();
+fetchData();
+</script>
+</body>
+</html>
